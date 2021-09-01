@@ -1,72 +1,101 @@
-function buildBubble() {
-  d3.json("/api/similarity_scores").then((data, err) => {
-    if (err) throw err;
-    console.log(data);
+// from femaledata.js
+var femaledata = data;
 
-    //Get first 15 records
-    const slicedArray = data.slice(0, 15);
-    console.log(slicedArray);
-
-    // Get data needed from json
-    var budget = slicedArray.map(d => d.budget);
-    var revenue = slicedArray.map(d => d.revenue);
-    var similarity = [];
-    for (var i=0; i<slicedArray.length; i++) {
-      var random = Math.random();
-      similarity.push(random);
-    }
-    console.log(similarity);
-    var title = slicedArray.map(d => d.title);
-    var genres = slicedArray.map(d => d.genres);
-
-    // Build BUBBLE
-    var data = [{
-      x: revenue,
-      y: budget,
-      text: title,
-      mode: 'markers',
-      marker: {
-        size: similarity * 100000000,
-        color: revenue,
-        //colorscale: "RdBu"
-      }
-    }];
-    var layout = {
-      title: `Female Lead or Directed Film Recommendations`,
-      font: { size: 13 },
-      xaxis: { title: "Revenue" },
-      yaxis: {title: "Budget"}
-    };
-    Plotly.newPlot('bubble', data, layout); 
-  });  //close json
-}
-// -------------------------------------------------- //
-// Build Table
 //Get a reference to the table body
 var tbody = d3.select("tbody");
 
-function buildTable() {
-  d3.json("/api/similarity_scores").then((data, err) => {
-    if (err) throw err;
-    console.log(data);
+// Get filter selected data and run functions to update bubble and table
+$(".btn1").click(function() {
+  var to100 = femaledata.filter(d => d.revenue <= 100000000);
+  buildBubble(to100);
+  buildTable(to100);
+});
+$(".btn2").click(function() {
+  var to200 = femaledata.filter(d => d.revenue > 100000000 && d.revenue <= 200000000);
+  buildBubble(to200);
+  buildTable(to200);
+});
+$(".btn3").click(function() {
+  var plus200 = femaledata.filter(d => d.revenue > 200000000);
+  buildBubble(plus200);
+  buildTable(plus200);
+});
+$(".btn4").click(function() {
+  buildBubble(femaledata);
+  buildTable(femaledata);
+});
+//-----------------------------------------------------------------//
+// Function to build bubble plot
+function buildBubble(data) {
+  console.log(data);
 
-    //Get first 15 records
-    const slicedArray = data.slice(0, 15);
-    console.log(slicedArray);
+  // Get needed data
+  var revenue = data.map(d => d.revenue);
+  var budget = data.map(d => d.budget);
+  var similarity = data.map(d => d.similarity_score);
+  score = [];
+  for (var i=0; i<similarity.length; i++) {
+    score.push(Math.pow(similarity[i]*50, 2)) 
+  }
+  var title = data.map(d => d.title);
+  var genres = data.map(d => d.genres);
+  var director = data.map(d => d.director);
+  var release = data.map(d => d.release_date);
+  var runtime = data.map(d => d.runtime);
 
-    var newData = [];
-    slicedArray.forEach(obj => { 
-    newData.push({"title": obj.title, "genres": obj.genres, "director": obj.director, "cast": obj.cast, "release_date": obj.release_date, 
-                  "runtime": obj.runtime, "budget": obj.budget, "revenue": obj.revenue});  
+  // Build BUBBLE
+  var Hoverinfo = []
+  for (i=0;i<director.length;i++){
+    p = {"Title":title[i], "Genre": genres[i], "Director":director[i],
+        "Release_Date":release[i],"Run_Time":runtime[i]+" min."}
+    Hoverinfo.push(p)
+  }
+  var data = [{
+    x: revenue,
+    y: budget,
+    text: Hoverinfo,
+    type: 'scatter',
+    mode: 'markers',
+    marker: {
+      size: score,
+      color: revenue,
+      colorscale: "Bluered",
+    },
+    hovertemplate:
+    "<b>Title:</b> %{text.Title}<br><b>Genre:</b> %{text.Genre}<br><b>Director:</b> %{text.Director}<br><b>Release Date:</b> %{text.Release_Date} <br> <b>Run Time:</b>%{text.Run_Time}<extra></extra>"
+  }]; //end data
+  var layout = {
+    title: `Female Directed Films`,
+    font: { size: 13 },
+    xaxis: { title: "Revenue" },
+    yaxis: {title: "Budget" }
+  }; // end layout
+  Plotly.newPlot('bubble', data, layout);
+}
+//-----------------------------------------------------------------//
+// Function to load table
+function buildTable(data) {
+
+  deleteTableBody();
+
+  var newData = [];
+  data.forEach(obj => { 
+    newData.push({"title": obj.title, "genres": obj.genres, "director": obj.director, "release_date": obj.release_date, 
+                  "runtime": obj.runtime, "budget": obj.budget, 
+                  "revenue": obj.revenue, 
+                  "similarity_score": obj.similarity_score.toFixed(3)});  
     });
-    console.log(newData);
 
-    newData.forEach(obj => {
-      var row = tbody.append("tr");
-      Object.entries(obj).forEach(([key, value]) => row.append("td").text(value));
-    });  
+  newData.forEach(movie => {
+    var row = tbody.append("tr");
+    Object.entries(movie).forEach(([key, value]) => row.append("td").text(value));
   });
-}   
-//------------------------------------------------------------
-buildBubble();
-buildTable();
+}
+//-----------------------------------------------------------------//
+// Clears table body to append new rows
+function deleteTableBody() {
+  tbody.selectAll("tr").remove()
+}
+//-----------------------------------------------------------------//
+buildBubble(femaledata);
+buildTable(femaledata);
